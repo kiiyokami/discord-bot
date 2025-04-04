@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { 
   ApplicationCommandOptionType,
   EmbedBuilder,
@@ -8,14 +10,18 @@ import {
   Slash, 
   SlashOption,
 } from "discordx";
-import axios from 'axios';
+
+
+import { getWeatherNow } from "../apis/weather.ts";
+
+
 
 @Discord()
 export class Weather {
   private static readonly COOLDOWN = 5000; // 5 seconds cooldown
   private lastUsed: Map<string, number> = new Map();
 
-  @Slash({ description: "Check the weather in a city", name: 'weather-city' })
+  @Slash({ description: "Check the weather in a city", name: 'current-weather' })
   async min(
     @SlashOption({
       description: "City name to check weather",
@@ -43,36 +49,17 @@ export class Weather {
       // Update last used timestamp
       this.lastUsed.set(userId, now);
 
-      //Fetch weather data
-      const result : any = await axios.get(`https://api.weatherapi.com/v1/current.json`, {
-        params: {
-          key: process.env.WEATHER_API_KEY,
-          q: input
-        }
-      });
-
-      if (result == '') {
-        throw new Error('Please enter a valid city.');
-      }
-
-      const parsed_data = {
-        location: `${result.data.location.name}, ${result.data.location.country}`,
-        weather_status:{
-          temp: `${result.data.current.temp_c}°C (${result.data.current.temp_f}°F)`,
-          condition:{
-            text: result.data.current.condition.text,
-            img: result.data.current.condition.icon
-          }
-        }
-      }
+      //get data
+      const data = await getWeatherNow(input)
+      
 
       // Create embed
       const embed = new EmbedBuilder()
         .setColor('#0099ff')
-        .setTitle(`Weather for ${parsed_data.location}`)
+        .setTitle(`Weather for ${data.location}`)
         .setDescription(`
-          ${parsed_data.weather_status.temp} - ${parsed_data.weather_status.condition.text}`)
-        .setImage(`https:${parsed_data.weather_status.condition.img}`)
+          ${data.weather_status.temp} - ${data.weather_status.condition.text}`)
+        .setImage(`https:${data.weather_status.condition.img}`)
         .setTimestamp()
         .setFooter({ text: `Requested by ${interaction.user.tag}` });
 
@@ -81,7 +68,7 @@ export class Weather {
       const embed = new EmbedBuilder()
         .setColor('#ff0000')
         .setTitle('Error')
-        .setDescription('Error occured. Please enter a valid city or try again.')
+        .setDescription(`Error occured. Please enter a valid city or try again. ${error.message}`)
         .setTimestamp()
         .setFooter({ text: `Requested by ${interaction.user.tag}` });
       await interaction.reply({embeds: [embed]});
